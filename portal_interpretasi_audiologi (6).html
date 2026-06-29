@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Interpretasi Audiologi - Lutan x earsound</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Gaya latar belakang krem sesuai cetak biru layout asli */
+        .bg-beige-pattern { 
+            background-color: #f5eedf; 
+            position: relative; 
+            overflow-x: hidden; 
+        }
+        .wave-decoration { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            top: 0; 
+            left: 0; 
+            z-index: 0; 
+            pointer-events: none; 
+            opacity: 0.5; 
+        }
+        .fade-in { 
+            animation: fadeIn 0.4s ease-out forwards; 
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        /* Desain Tab Folder Eksklusif */
+        .folder-tab { 
+            position: relative; 
+            background: linear-gradient(180deg, #91c7eb 0%, #ffffff 100%); 
+            border: 2px solid #5b87a8; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .folder-tab::before { 
+            content: ''; 
+            position: absolute; 
+            top: -16px; 
+            left: 20px; 
+            width: 70px; 
+            height: 16px; 
+            background-color: #91c7eb; 
+            border-top: 2px solid #5b87a8; 
+            border-left: 2px solid #5b87a8; 
+            border-right: 2px solid #5b87a8; 
+            border-radius: 8px 8px 0 0; 
+        }
+        .folder-tab:hover { 
+            transform: translateY(-6px); 
+            box-shadow: 0 20px 25px -5px rgba(91, 135, 168, 0.25); 
+        }
+    </style>
+</head>
+<body class="bg-beige-pattern min-h-screen flex flex-col justify-between text-slate-800">
+
+    <!-- Garis Dekorasi Gelombang Latar Belakang -->
+    <svg class="wave-decoration" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 800" fill="none">
+        <path d="M-100,200 C300,100 500,400 900,150 C1200,50 1300,300 1600,100" stroke="#e5dac0" stroke-width="4" />
+        <path d="M-50,450 C350,300 600,600 1000,350 C1300,200 1400,500 1700,250" stroke="#e5dac0" stroke-width="3" />
+    </svg>
+
+    <!-- Kontainer Notifikasi Terapung -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+    <!-- Top Nav Bar: API Key & Configuration -->
+    <header class="w-full bg-slate-900/90 text-white py-3 px-6 z-40 relative border-b border-slate-700 backdrop-blur-sm shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-brain text-yellow-400 text-lg animate-pulse"></i>
+                <span class="text-sm font-bold uppercase tracking-wider">Asisten Interpretasi Audiologi Multimodal</span>
+            </div>
+            <!-- API Key Input Section -->
+            <div class="flex items-center space-x-2 w-full sm:w-auto max-w-md">
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                        <i class="fa-solid fa-key"></i>
+                    </span>
+                    <input type="password" id="input-api-key" placeholder="Masukkan Gemini API Key..." 
+                           class="w-full pl-9 pr-8 py-1.5 bg-slate-800 text-slate-100 border border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-yellow-400 focus:outline-none placeholder-slate-500 font-mono" />
+                    <button onclick="toggleVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-100">
+                        <i id="toggle-eye" class="fa-solid fa-eye-slash text-[11px]"></i>
+                    </button>
+                </div>
+                <button onclick="simpanApiKey()" class="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-slate-950 font-extrabold text-xs rounded-lg transition-all shadow-md">
+                    Simpan
+                </button>
+                <a href="https://aistudio.google.com/" target="_blank" title="Dapatkan API Key Gratis di Google AI Studio"
+                   class="text-sky-400 hover:text-sky-300 text-xs flex items-center space-x-1 underline shrink-0">
+                    <span>Dapatkan Key</span>
+                    <i class="fa-solid fa-up-right-from-square text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Overlay Loading AI Modern -->
+    <div id="ai-loading-overlay" class="hidden fixed inset-0 bg-slate-900/90 z-50 flex flex-col items-center justify-center text-white backdrop-blur-sm">
+        <div class="relative w-24 h-24 mb-6">
+            <div class="absolute inset-0 border-4 border-t-yellow-400 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+            <i class="fa-solid fa-microchip text-yellow-400 text-3xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse"></i>
+        </div>
+        <h3 id="loading-title" class="text-xl font-black uppercase tracking-widest text-yellow-400 mb-2">Menganalisis Gambar</h3>
+        <p id="loading-desc" class="text-sm text-sky-200 max-w-md text-center px-4 font-mono">Kecerdasan Buatan (AI) sedang memetakan kurva dan mengekstrak parameter interpretasi...</p>
+    </div>
+
+    <div class="z-10 w-full flex flex-col flex-grow justify-center py-6">
+        
+        <!-- ================= HALAMAN PILIHAN MENU (APA CARIK?) ================= -->
+        <section id="halaman-pilihan" class="fade-in max-w-6xl mx-auto px-4 w-full text-center">
+            <h1 class="text-5xl md:text-6xl font-black text-[#0B4D9C] uppercase tracking-wider drop-shadow-sm mb-16 select-none">
+                APA CARIK?
+            </h1>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-10">
+                <!-- Tombol OAE -->
+                <button onclick="pilihMenu('OAE')" class="folder-tab h-44 w-full flex flex-col items-center justify-center p-4">
+                    <span class="text-4xl font-black text-[#0B4D9C] tracking-wide">OAE</span>
+                    <span class="text-[11px] font-bold text-slate-500 mt-2 uppercase">Otoacoustic Emissions</span>
+                </button>
+                <!-- Tombol PTA -->
+                <button onclick="pilihMenu('PTA')" class="folder-tab h-44 w-full flex flex-col items-center justify-center p-4">
+                    <span class="text-4xl font-black text-[#0B4D9C] tracking-wide">PTA</span>
+                    <span class="text-[11px] font-bold text-slate-500 mt-2 uppercase">Pure Tone Audiometry</span>
+                </button>
+                <!-- Tombol TYM -->
+                <button onclick="pilihMenu('TYM')" class="folder-tab h-44 w-full flex flex-col items-center justify-center p-4">
+                    <span class="text-4xl font-black text-[#0B4D9C] tracking-wide">TYM</span>
+                    <span class="text-[11px] font-bold text-slate-500 mt-2 uppercase">Timpanometri</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ================= HALAMAN UNGGAH GAMBAR ================= -->
+        <section id="halaman-upload" class="hidden fade-in max-w-2xl mx-auto px-4 w-full">
+            <div class="bg-[#0B4D9C] rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden border-4 border-white">
+                <div class="absolute top-4 left-5 flex space-x-2">
+                    <span class="w-3 h-3 bg-red-400 rounded-full"></span>
+                    <span class="w-3 h-3 bg-yellow-400 rounded-full"></span>
+                    <span class="w-3 h-3 bg-green-400 rounded-full"></span>
+                </div>
+                
+                <h2 class="text-2xl font-black text-yellow-400 mb-2 mt-2 uppercase tracking-wide">
+                    UNGGAH GAMBAR HASIL <span id="label-jenis-pemeriksaan"></span>
+                </h2>
+                <p class="text-sky-200 text-xs mb-8">Ambil foto atau tangkapan layar (screenshot) hasil cetak perangkat medis Anda</p>
+                
+                <!-- Area Drop Zone khusus Gambar -->
+                <div id="drop-zone" class="border-3 border-dashed border-sky-300 rounded-2xl py-14 px-6 bg-sky-900/30 cursor-pointer hover:bg-sky-900/50 transition-all flex flex-col items-center"
+                     onclick="triggerFileInput()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+                    <i class="fa-solid fa-file-image text-6xl text-white mb-4"></i>
+                    <p class="text-white font-extrabold text-sm mb-1">Klik untuk memilih gambar atau seret ke sini</p>
+                    <p class="text-sky-300 text-[11px] font-mono">Mendukung format gambar saja (PNG, JPG, JPEG)</p>
+                    <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileSelected(this)">
+                </div>
+            </div>
+            <button onclick="keHalamanPilihan()" class="mt-6 text-[#0B4D9C] font-bold underline mx-auto block hover:text-blue-800 text-sm">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Kembali ke Menu Utama
+            </button>
+        </section>
+
+        <!-- ================= STREAMING_CHUNK: Menyusun ruang kerja Split Workspace (Pratinjau Kiri & Laporan Kanan) ================= -->
+        <!-- ================= WORKSPACE PREVIEW & AI INTERPRETATION ================= -->
+        <section id="halaman-workspace" class="hidden fade-in max-w-[1450px] mx-auto px-6 w-full">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-slate-300 pb-4 mb-6">
+                <div class="flex items-center space-x-3">
+                    <span class="bg-[#0B4D9C] text-white px-3 py-1 rounded-md font-black text-xs uppercase" id="workspace-badge">PTA</span>
+                    <h2 class="text-lg font-bold text-slate-800">Panel Interpretasi Cerdas Multimodal</h2>
+                </div>
+                <button onclick="kembaliKeUpload()" class="mt-2 sm:mt-0 px-4 py-2 bg-[#0B4D9C] hover:bg-blue-800 text-white font-bold text-xs rounded-lg transition-all shadow-md">
+                    <i class="fa-solid fa-rotate-left mr-2"></i> Unggah Gambar Lain
+                </button>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                <!-- Panel Kiri: Pratinjau Gambar Hasil Medis yang Diunggah (50%) -->
+                <div class="lg:col-span-6 bg-white rounded-2xl p-6 shadow-md border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">
+                            <i class="fa-solid fa-image mr-1.5"></i> Berkas Hasil Pemeriksaan Medis
+                        </p>
+                        <div id="preview-area" class="w-full h-[450px] flex items-center justify-center bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                            <!-- Elemen gambar dinamis -->
+                            <img id="image-viewer" src="" alt="Pratinjau Hasil" class="max-h-full max-w-full object-contain hidden">
+                            <div id="no-image-placeholder" class="text-center text-slate-400">
+                                <i class="fa-solid fa-images text-5xl mb-3"></i>
+                                <p class="text-sm font-semibold">Tidak ada gambar yang berhasil dimuat</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-[10px] text-slate-500 font-mono text-center">
+                        Pastikan bagian kurva, warna penanda, dan skala desibel (dB HL) terlihat jelas untuk interpretasi yang optimal.
+                    </div>
+                </div>
+
+                <!-- Panel Kanan: Laporan Hasil Diagnosis Otomatis AI (50%) -->
+                <div class="lg:col-span-6 bg-white rounded-2xl p-6 shadow-md border border-slate-200 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b pb-3 mb-4">
+                            <p class="text-xs font-extrabold text-[#0B4D9C] uppercase tracking-wider">
+                                <i class="fa-solid fa-file-waveform mr-1.5"></i> Laporan Diagnosis & Terapi Rekomendasi
+                            </p>
+                            <span class="text-[10px] bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded-full">
+                                <i class="fa-solid fa-robot mr-1"></i> Gemini 2.5 Active
+                            </span>
+                        </div>
+                        
+                        <!-- Kontainer Teks Laporan Medis -->
+                        <div id="interpretasi-output" class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm overflow-y-auto max-h-[440px] min-h-[400px]">
+                            <p class="text-slate-400 text-center py-20 font-mono font-bold">Sedang memproses...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <button onclick="window.print()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-all flex items-center">
+                            <i class="fa-solid fa-print mr-2"></i> Cetak Laporan
+                        </button>
+                        <span class="text-[10px] text-slate-400 font-mono">Klinik THT Lutan x earsound</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- FOOTER / BRAND COLLABORATION -->
+    <footer class="w-full flex flex-col items-center pb-8 pt-6 z-10">
+        <p class="text-[10px] tracking-widest uppercase text-slate-400 font-extrabold mb-3">Kolaborasi</p>
+        <div class="flex items-center space-x-6 bg-white px-8 py-3 rounded-2xl shadow-md border border-slate-200/80">
+            <!-- Logo Klinik THT Lutan -->
+            <div class="flex items-center max-h-12">
+                <img src="Screenshot 2026-06-28 at 20.39.52.png" alt="Klinik Spesialis THT Lutan" class="h-10 md:h-12 object-contain" onerror="this.src='https://placehold.co/120x60/0b4d9c/ffffff?text=Klinik+Lutan'">
+            </div>
+            <!-- Pembatas X -->
+            <span class="text-slate-300 font-black text-sm select-none">X</span>
+            <!-- Logo earsound -->
+            <div class="flex items-center max-h-12">
+                <img src="Screenshot 2026-06-28 at 20.39.43.png" alt="earsound" class="h-10 md:h-12 object-contain" onerror="this.src='https://placehold.co/120x60/f59e0b/ffffff?text=earsound'">
+            </div>
+        </div>
+    </footer>
+
+    <!-- INTERACTIVE JAVASCRIPT LOGIC -->
+    <script>
+        let menuAktif = '';
+        let fileGambarAktif = null;
+
+        // Inisialisasi API Key dari localStorage saat aplikasi pertama kali dimuat
+        window.onload = function () {
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                document.getElementById('input-api-key').value = savedKey;
+                tunjukkanToast("Gemini API Key otomatis dimuat dari perangkat.", "success");
+            } else {
+                tunjukkanToast("Silakan masukkan Gemini API Key Anda pada kolom di bagian atas.", "error");
+            }
+        };
+
+        // Fungsi menyimpan API Key
+        function simpanApiKey() {
+            const key = document.getElementById('input-api-key').value.trim();
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+                tunjukkanToast("Gemini API Key berhasil disimpan secara aman!", "success");
+            } else {
+                localStorage.removeItem('gemini_api_key');
+                tunjukkanToast("API Key dihapus.", "info");
+            }
+        }
+
+        // Toggle visibility password key
+        function toggleVisibility() {
+            const input = document.getElementById('input-api-key');
+            const eye = document.getElementById('toggle-eye');
+            if (input.type === 'password') {
+                input.type = 'text';
+                eye.classList.remove('fa-eye-slash');
+                eye.classList.add('fa-eye');
+            } else {
+                input.type = 'password';
+                eye.classList.remove('fa-eye');
+                eye.classList.add('fa-eye-slash');
+            }
+        }
+
+        // Custom Toast Notification
+        function tunjukkanToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl shadow-lg border text-xs font-bold transition-all duration-300 fade-in ${
+                type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 'bg-green-50 text-green-800 border-green-200'
+            }`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Penanganan Perpindahan Menu
+        function pilihMenu(jenis) {
+            menuAktif = jenis;
+            document.getElementById('halaman-pilihan').classList.add('hidden');
+            document.getElementById('halaman-upload').classList.remove('hidden');
+            document.getElementById('label-jenis-pemeriksaan').innerText = jenis;
+        }
+
+        function keHalamanPilihan() {
+            document.getElementById('halaman-upload').classList.add('hidden');
+            document.getElementById('halaman-pilihan').classList.remove('hidden');
+            document.getElementById('file-input').value = "";
+            fileGambarAktif = null;
+        }
+
+        function triggerFileInput() { 
+            document.getElementById('file-input').click(); 
+        }
+
+        function handleDrop(e) { 
+            e.preventDefault(); 
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                prosesGambarMedis(file);
+            } else {
+                tunjukkanToast("Hanya mendukung format file gambar (PNG, JPG, JPEG).", "error");
+            }
+        }
+
+        function handleFileSelected(input) { 
+            const file = input.files[0];
+            if (file && file.type.startsWith('image/')) {
+                prosesGambarMedis(file);
+            } else {
+                tunjukkanToast("Pilih file gambar yang valid.", "error");
+            }
+        }
+
+        function kembaliKeUpload() {
+            document.getElementById('halaman-workspace').classList.add('hidden');
+            document.getElementById('halaman-upload').classList.remove('hidden');
+            document.getElementById('file-input').value = "";
+            fileGambarAktif = null;
+        }
+
+        // Panggilan AI Utama dengan Aturan Exponential Backoff Sesuai Prosedur
+        async function panggilGeminiDenganBackoff(payload) {
+            const apiKey = localStorage.getItem('gemini_api_key') || '';
+            if (!apiKey) {
+                throw new Error("API Key kosong. Masukkan Gemini API Key valid di bagian atas layar terlebih dahulu.");
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const jedaWaktu = [1000, 2000, 4000, 8000, 16000]; // Rentang waktu jeda untuk retry (1s, 2s, 4s, 8s, 16s)
+            
+            for (let percobaan = 0; percobaan <= 5; percobaan++) {
+                try {
+                    const respon = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (respon.ok) {
+                        return await respon.json();
+                    } else {
+                        const errData = await respon.json();
+                        if (errData.error && errData.error.message) {
+                            // Tangkap error otentikasi kunci atau batasan quota
+                            throw new Error(`Google API Error: ${errData.error.message}`);
+                        }
+                    }
+                } catch (error) {
+                    if (percobaan === 5 || error.message.includes("API Key")) {
+                        throw error;
+                    }
+                }
+                
+                if (percobaan < 5) {
+                    await new Promise(resolve => setTimeout(resolve, jedaWaktu[percobaan]));
+                }
+            }
+            throw new Error("Layanan AI sedang sibuk. Silakan coba kembali sesaat lagi.");
+        }
+
+        // Ekstraksi & Analisis Multimodal Menggunakan Gambar
+        async function prosesGambarMedis(file) {
+            if (!file) return;
+            
+            const apiKeyCheck = localStorage.getItem('gemini_api_key') || '';
+            if (!apiKeyCheck) {
+                tunjukkanToast("Gagal memulai. Silakan masukkan Gemini API Key di bagian atas terlebih dahulu!", "error");
+                return;
+            }
+
+            fileGambarAktif = file;
+
+            // Masuk ke Halaman Workspace & Aktifkan Animasi Memuat
+            document.getElementById('halaman-upload').classList.add('hidden');
+            document.getElementById('halaman-workspace').classList.remove('hidden');
+            document.getElementById('workspace-badge').innerText = menuAktif;
+
+            const viewer = document.getElementById('image-viewer');
+            const placeholder = document.getElementById('no-image-placeholder');
+            
+            // Set penampil gambar lokal
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                viewer.src = e.target.result;
+                viewer.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+
+            // Munculkan layar loading AI
+            const overlay = document.getElementById('ai-loading-overlay');
+            overlay.classList.remove('hidden');
+            document.getElementById('loading-title').innerText = `Menganalisis Gambar ${menuAktif}...`;
+            document.getElementById('loading-desc').innerText = "AI sedang membaca grafis medis secara spasial. Mohon tunggu...";
+            document.getElementById('interpretasi-output').innerHTML = `<p class="text-slate-400 text-center py-20 font-mono font-bold">Sedang memetakan gambar secara spasial...</p>`;
+
+            try {
+                // Konversi gambar ke Base64
+                const base64Gambar = await new Promise((resolve, reject) => {
+                    const readerBase64 = new FileReader();
+                    readerBase64.onload = () => resolve(readerBase64.result.split(',')[1]);
+                    readerBase64.onerror = err => reject(err);
+                    readerBase64.readAsDataURL(file);
+                });
+
+                // Perkuat instruksi medis spesifik (Sumbu Y terbalik pada audiogram & diagnosis neurotologi)
+                const instruksiSistem = `Anda adalah asisten medis spesialis audiologi THT dari Kolegium THT-BKL Indonesia.
+                Tugas Anda adalah membaca gambar hasil pemeriksaan ${menuAktif} (OAE/PTA/Timpanometri) dan menyusun analisis diagnosa yang akurat serta rekomendasi tindak lanjutnya.
+
+                PANDUAN PEMBACAAN KOORDINAT GRAFIS AUDIOGRAM (PENTING):
+                1. Sumbu Y (Tingkat Pendengaran dalam dB HL) TERBALIK SECARA MEDIS: Ambang batas normal (0 dB s.d 20 dB HL) berada di bagian ATAS, sedangkan ketulian parah (90 dB s.d 120 dB HL) berada di bagian BAWAH grafis.
+                2. Sumbu X merepresentasikan frekuensi suara dari frekuensi rendah ke tinggi (250 Hz s.d 8000 Hz).
+                3. Telinga Kanan (AD): warna MERAH dengan penanda lingkaran 'O' (AC) atau '<' (BC).
+                4. Telinga Kiri (AS): warna BIRU dengan penanda silang 'X' (AC) atau '>' (BC).
+
+                Berikan jawaban laporan medis terstruktur dalam bahasa Indonesia menggunakan format HTML rapi tanpa membungkusnya dalam kode blok (jangan gunakan \`\`\`html atau \`\`\`). Penulisan harus menggunakan CSS Tailwind untuk kemudahan membaca. Susun isi laporan menjadi:
+                1. 📑 **Ringkasan Temuan Klinis & Klasifikasi**: Tentukan derajat ambang dengar sesuai klasifikasi WHO/ISO terkini.
+                2. 🔍 **Rekomendasi Diagnosis Banding**: Kemungkinan penyebab (misalnya: SNHL, Tuli Konduktif, Otosklerosis, OME, Presbiakusis).
+                3. 🧪 **Rencana Investigasi**: Pemeriksaan lanjutan yang disarankan.
+                4. 💊 **Usulan Tata Laksana Medis**: Rencana terapi, pengobatan, atau kebutuhan Alat Bantu Dengar (ABD).`;
+
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            { text: `Lakukan analisis lengkap dan interpretasi klinis terhadap gambar hasil uji ${menuAktif} ini.` },
+                            { inlineData: { mimeType: file.type, data: base64Gambar } }
+                        ]
+                    }],
+                    systemInstruction: { parts: [{ text: instruksiSistem }] }
+                };
+
+                // Panggil API menggunakan Exponential Backoff
+                const dataHasil = await panggilGeminiDenganBackoff(payload);
+                const teksRespons = dataHasil.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (teksRespons) {
+                    // Tampilkan laporan klinis terstruktur di workspace
+                    document.getElementById('interpretasi-output').innerHTML = teksRespons;
+                    tunjukkanToast("Analisis gambar berhasil diselesaikan oleh AI!", "success");
+                } else {
+                    throw new Error("Gagal memperoleh teks laporan dari Google Gemini.");
+                }
+
+            } catch (error) {
+                console.error(error);
+                tunjukkanToast(`Gagal memproses berkas: ${error.message}`, "error");
+                document.getElementById('interpretasi-output').innerHTML = `
+                    <div class="p-4 bg-red-50 text-red-800 rounded-lg border border-red-100">
+                        <p class="font-bold text-red-900"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Analisis Terganggu</p>
+                        <p class="text-xs mt-2 font-semibold">Alasan kegagalan:</p>
+                        <p class="text-xs mt-1 font-mono text-red-700 bg-red-100/50 p-2 rounded border border-red-200">${error.message}</p>
+                        <div class="mt-4 bg-white p-3 rounded-md text-[11px] text-slate-600 shadow-sm leading-relaxed">
+                            <strong>Langkah Penyelesaian Klinis:</strong><br/>
+                            1. Pastikan Anda telah memasukkan <strong>Gemini API Key yang valid</strong> pada kolom di atas layar.<br/>
+                            2. Periksa apakah masa tenggang atau kuota gratis limit API Google AI Studio Anda habis.<br/>
+                            3. Pastikan gambar yang diunggah memiliki pencahayaan cukup dan memuat seluruh bagian sumbu grafik dengan jelas.
+                        </div>
+                    </div>
+                `;
+            } finally {
+                overlay.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
